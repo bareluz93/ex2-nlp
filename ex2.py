@@ -1,9 +1,10 @@
 import nltk
+import numpy as np
 from nltk.corpus import brown
 import numpy as np
 
 data = brown.tagged_sents(categories='news')
-training_set = data[0:round(len(data) * 0.9)]
+training_set = data[0:int(len(data) * 0.9)]
 
 
 class ngram:
@@ -31,7 +32,9 @@ class ngram:
 
     # iterate over all counters, add one to all of them.
     def add_one(self):
-        print('TBD')
+        keys = self.counters.keys()
+        for key in keys:
+            self.counters[key] = self.counters[key] + 1
 
     # implement in the derived
     def tag_sentence(self, sent):
@@ -39,10 +42,29 @@ class ngram:
 
     # get sentences, tag them using tag_sentence(), compare to original, compute and return the accuarcy
     def test(self, tagged_sents):
+        total_counter = 0
+        mistakes_counter = 0
         print('TBD')
+        for tagged_sentence in tagged_sents:
+            # create new, untagged, sentence
+            sentence = []
+            for tagged_word in tagged_sentence:
+                sentence.append(tagged_word[0])
+            # tag the sentence
+            tagged_sents_our = self.tag_sentence(np.array(sentence))
+            # check our tagging and update mistake counter
+            for tagged_word_our, tagged_word_orig in zip(tagged_sents_our, tagged_sents):
+                total_counter = total_counter + 1
+                if tagged_word_our[1] != tagged_word_orig[1]:
+                    mistakes_counter = mistakes_counter + 1
+        print(total_counter)
+        print(mistakes_counter)
+        print('total score is ', mistakes_counter/total_counter)
+
+
 
     # the full training method, implement in derived
-    def train():
+    def train(self, tagged_sents):
         print('not imlemented!')
 
 
@@ -57,7 +79,9 @@ def get_all_possible_tags():
 
 
 class unigram(ngram):
-    words_highest_tag={}
+
+    words_highest_tag = {}
+
     def count(self, tagged_sents):
         all_words, all_tags = get_all_possible_tags()
         for tag in all_tags:
@@ -74,11 +98,16 @@ class unigram(ngram):
             self.words_highest_tag[word]=max(tags_counts, key=tags_counts.get)
 
         return
+
+    def train(self, tagged_sents):
+        self.count(tagged_sents)
+
     def tag_sentence(self, sent):
         tagged_sentece= np.zeros(np.shape(sent),dtype='str,str')
         for i in range(len(sent)):
             tagged_sentece[i]=(sent[i],self.words_highest_tag[sent[i]])
         return tagged_sentece
+
 class bigram(ngram):
     def count(self, tagged_sents):
         all_words, all_tags = get_all_possible_tags()
@@ -97,4 +126,8 @@ class bigram(ngram):
 
 model_uni = unigram()
 model_uni.count(training_set)
-print(model_uni.words_highest_tag)
+sentence = np.array(['the', 'a'])
+model_uni.tag_sentence(sentence)
+
+#print(model_uni.words_highest_tag)
+#model_uni.test(training_set)
