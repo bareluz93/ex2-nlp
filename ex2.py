@@ -123,8 +123,8 @@ class bigram(ngram):
             self.bigram_training_set[i].append(('STOP', 'STOP'))
 
     # compute the count of every word and every tuples of words in the corpus sentences
-    def count_tuples_and_words(self):
-        tuples_count = {}
+    def count_words(self):
+        word_tuple_count = {}
         word_count = {}
         for sent in self.bigram_training_set:
             for i in range(1, len(sent)):
@@ -132,15 +132,31 @@ class bigram(ngram):
                     word_count[sent[i][0]] += 1
                 else:
                     word_count[sent[i][0]] = 1
-                if (sent[i][0], sent[i - 1][0]) in tuples_count:
-                    tuples_count[(sent[i][0], sent[i - 1][0])] += 1
+                if (sent[i][0], sent[i - 1][0]) in word_tuple_count:
+                    word_tuple_count[(sent[i][0], sent[i - 1][0])] += 1
                 else:
-                    tuples_count[(sent[i][0], sent[i - 1][0])] = 1
-        return tuples_count, word_count
+                    word_tuple_count[(sent[i][0], sent[i - 1][0])] = 1
+        return word_tuple_count, word_count
+
+    # compute the count of every tag and every tuples of tags in the corpus sentences
+    def count_tags(self):
+        tags_tuples_count = {}
+        tags_count = {}
+        for sent in self.bigram_training_set:
+            for i in range(1, len(sent)):
+                if sent[i][1] in tags_count:
+                    tags_count[sent[i][1]] += 1
+                else:
+                    tags_count[sent[i][1]] = 1
+                if (sent[i][1], sent[i - 1][1]) in tags_tuples_count:
+                    tags_tuples_count[(sent[i][1], sent[i - 1][1])] += 1
+                else:
+                    tags_tuples_count[(sent[i][1], sent[i - 1][1])] = 1
+        return tags_tuples_count, tags_count
 
     # find the emission probabilities of tuples of words
     def tuple_emission_prob(self, w1, w2, add_ones=False):
-        tuples_count, word_count = self.count_tuples_and_words()
+        tuples_count, word_count = self.count_words()
         if w2 in word_count and (w1, w2) in tuples_count:
             return tuples_count[(w1, w2)] / word_count[w2]
         else:
@@ -170,7 +186,7 @@ class bigram(ngram):
 
 
 model_bi = bigram()
-tuples_count, words_count = model_bi.count_tuples_and_words()
+tuples_count, words_count = model_bi.count_words()
 # print('...........tuples_count.........')
 # print(tuples_count)
 print('...........words_count.........')
