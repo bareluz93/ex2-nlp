@@ -1,3 +1,4 @@
+
 import nltk
 import numpy as np
 from nltk.corpus import brown
@@ -103,9 +104,12 @@ class unigram(ngram):
         self.count(tagged_sents)
 
     def tag_sentence(self, sent):
-        tagged_sentece= np.zeros(np.shape(sent),dtype='str,str')
-        for i in range(len(sent)):
-            tagged_sentece[i]=(sent[i],self.words_highest_tag[sent[i]])
+        tagged_sentece= np.zeros(np.shape(sent),dtype='O')
+        for i in range(np.shape(sent)[0]):
+            if(sent[i] in self.words_highest_tag):
+                tagged_sentece[i]=(sent[i],self.words_highest_tag[sent[i]])
+            else:
+                tagged_sentece[i]=(sent[i],'NN')
         return tagged_sentece
 
 class bigram(ngram):
@@ -126,8 +130,9 @@ class bigram(ngram):
 
 model_uni = unigram()
 model_uni.count(training_set)
-sentence = np.array(['the', 'a'])
-model_uni.tag_sentence(sentence)
+sentence = np.array(['jksdkfj', 'a'])
+print(sentence)
+print(model_uni.tag_sentence(sentence))
 
 #print(model_uni.words_highest_tag)
 #model_uni.test(training_set)
