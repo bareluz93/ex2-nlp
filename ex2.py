@@ -4,7 +4,7 @@ from nltk.corpus import brown
 import numpy as np
 
 data = brown.tagged_sents(categories='news')
-training_set = data[0:int(len(data) * 0.9)]
+training_set = data[0:int(len(data) * 0.1)]
 
 
 class ngram:
@@ -44,8 +44,8 @@ class ngram:
     def test(self, tagged_sents):
         total_counter = 0
         mistakes_counter = 0
-        print('TBD')
         for tagged_sentence in tagged_sents:
+            print(tagged_sentence)
             # create new, untagged, sentence
             sentence = []
             for tagged_word in tagged_sentence:
@@ -103,9 +103,10 @@ class unigram(ngram):
         self.count(tagged_sents)
 
     def tag_sentence(self, sent):
-        tagged_sentece= np.zeros(np.shape(sent),dtype='str,str')
+        tagged_sentece= np.zeros(np.shape(sent),dtype='O')
         for i in range(len(sent)):
-            tagged_sentece[i]=(sent[i],self.words_highest_tag[sent[i]])
+            touple = (sent[i],self.words_highest_tag[sent[i]])
+            tagged_sentece[i]=touple
         return tagged_sentece
 
 class bigram(ngram):
@@ -126,8 +127,13 @@ class bigram(ngram):
 
 model_uni = unigram()
 model_uni.count(training_set)
-sentence = np.array(['the', 'a'])
-model_uni.tag_sentence(sentence)
-
+#print(type(training_set))
+for i in data:
+    if i == None:
+        print('none')
+a = model_uni.test(data)
+#sentence = np.array(['the', 'a'])
+#tagged_sentence = model_uni.tag_sentence(sentence)
+#print(tagged_sentence)
 #print(model_uni.words_highest_tag)
 #model_uni.test(training_set)
