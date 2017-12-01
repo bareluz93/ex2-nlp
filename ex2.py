@@ -4,7 +4,7 @@ from nltk.corpus import brown
 import numpy as np
 
 data = brown.tagged_sents(categories='news')
-training_set = data[0:int(len(data) * 0.1)]
+training_set = data[0:int(len(data) * 0.9)]
 
 
 class ngram:
@@ -44,8 +44,8 @@ class ngram:
     def test(self, tagged_sents):
         total_counter = 0
         mistakes_counter = 0
+        print('TBD')
         for tagged_sentence in tagged_sents:
-            print(tagged_sentence)
             # create new, untagged, sentence
             sentence = []
             for tagged_word in tagged_sentence:
@@ -104,9 +104,11 @@ class unigram(ngram):
 
     def tag_sentence(self, sent):
         tagged_sentece= np.zeros(np.shape(sent),dtype='O')
-        for i in range(len(sent)):
-            touple = (sent[i],self.words_highest_tag[sent[i]])
-            tagged_sentece[i]=touple
+        for i in range(np.shape(sent)[0]):
+            if(sent[i] in self.words_highest_tag):
+                tagged_sentece[i]=(sent[i],self.words_highest_tag[sent[i]])
+            else:
+                tagged_sentece[i]=(sent[i],'NN')
         return tagged_sentece
 
 class bigram(ngram):
