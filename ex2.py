@@ -1,5 +1,6 @@
 import nltk
 from nltk.corpus import brown
+import numpy as np
 
 data = brown.tagged_sents(categories='news')
 training_set = data[0:round(len(data) * 0.9)]
@@ -56,21 +57,28 @@ def get_all_possible_tags():
 
 
 class unigram(ngram):
+    words_highest_tag={}
     def count(self, tagged_sents):
         all_words, all_tags = get_all_possible_tags()
-        print(all_words)
-        single_word_dict = {}
         for tag in all_tags:
             for word in  all_words:
                 self.counters[(word,tag)]=0
 
-        print(self.counters.keys())
         for sentence in tagged_sents:
             for tagged_word in sentence:
-                self.counters[tagged_word] = self.counters[tagged_word] + 1
+                self.counters[(tagged_word[0],tagged_word[1]) ]= self.counters[tagged_word] + 1
+        for word in all_words:
+            tags_counts={}
+            for tag in (all_tags):
+                tags_counts[tag]=self.counters[(word,tag)]
+            self.words_highest_tag[word]=max(tags_counts, key=tags_counts.get)
+
         return
-
-
+    def tag_sentence(self, sent):
+        tagged_sentece= np.zeros(np.shape(sent),dtype='str,str')
+        for i in range(len(sent)):
+            tagged_sentece[i]=(sent[i],self.words_highest_tag[sent[i]])
+        return tagged_sentece
 class bigram(ngram):
     def count(self, tagged_sents):
         all_words, all_tags = get_all_possible_tags()
@@ -88,4 +96,5 @@ class bigram(ngram):
 
 
 model_uni = unigram()
-model_uni.count()
+model_uni.count(training_set)
+print(model_uni.words_highest_tag)
