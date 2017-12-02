@@ -6,6 +6,10 @@ import copy
 from functools import reduce
 import collections
 
+STOP = 'STOP'
+
+START = 'START'
+
 data = brown.tagged_sents(categories='news')
 training_set = data[0:int(len(data) * 0.9)]
 
@@ -75,7 +79,12 @@ class ngram:
                 if tagged_sents_our[i][1] != tagged_sentence[i][1]:
                     mistakes_counter = mistakes_counter + 1
 
-        return 1 - float(mistakes_counter)/total_counter
+        return 1 - float(mistakes_counter) / total_counter
+
+        # the full training method, implement in derived
+
+    def train(self, tagged_sents):
+        print('not imlemented!')
 
     # the full training method, implement in derived
     def train(self, tagged_sents):
@@ -107,7 +116,7 @@ class unigram(ngram):
     def tag_sentence(self, sent):
         tagged_sentece = np.zeros(np.shape(sent), dtype='O')
         for i in range(np.shape(sent)[0]):
-            if (sent[i] in self.words_highest_tag):
+            if sent[i] in self.words_highest_tag:
                 tagged_sentece[i] = (sent[i], self.words_highest_tag[sent[i]])
             else:
                 tagged_sentece[i] = (sent[i], 'NN')
@@ -119,20 +128,19 @@ class bigram(ngram):
     words_tags_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_tuples_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_count = collections.defaultdict(int)
-    all_tags_vec=np.array(1)
-
+    all_tags_vec = np.array(1)
 
     def __init__(self):
         # add the word 'START' to the beginning of every sentence and the word 'STOP' to the end of every sentence
         for sent in training_set:
-            self.bigram_training_set.append([('START', 'START')] + sent + [('STOP', 'STOP')])
-        ngram.all_tags.add('START')
-        ngram.all_tags.add('STOP')
-        sorted_tag_list=list(ngram.all_tags)
+            self.bigram_training_set.append([(START, START)] + sent + [(STOP, STOP)])
+        ngram.all_tags.add(START)
+        ngram.all_tags.add(STOP)
+        sorted_tag_list = list(ngram.all_tags)
         sorted_tag_list.sort()
         self.all_tags_vec = np.array(sorted_tag_list).reshape(len(ngram.all_tags), 1)
-        self.reate_transition_matrix()
-
+        self.count_words_and_tags()
+        self.create_transition_matrix()
 
     def add_one(self):
         for word in self.all_words:
@@ -147,10 +155,19 @@ class bigram(ngram):
     def count_words_and_tags(self):
 
         for sent in self.bigram_training_set:
+            self.tags_count[sent[0][0]] += 1
             for i in range(1, len(sent)):
                 self.words_tags_count[sent[i][0]][sent[i][1]] += 1
                 self.tags_count[sent[i][1]] += 1
-                self.tags_tuples_count[sent[i-1][1]][sent[i][1]] += 1
+                self.tags_tuples_count[sent[i - 1][1]][sent[i][1]] += 1
+
+    # use after training (counting)
+    def create_transition_matrix(self):
+        self.trans_prob_mat = 0 - np.ones(shape=(self.all_tags_vec.shape[0], self.all_tags_vec.shape[0]))
+        for i in range(0, self.all_tags_vec.shape[0]):
+            for j in range(0, self.all_tags_vec.shape[0]):
+                self.trans_prob_mat[i, j] = self.tuple_transition_prob(self.all_tags_vec[i, 0], self.all_tags_vec[j, 0])
+        self.trans_prob_mat = self.trans_prob_mat.transpose()
 
     # find the emission probability of word and tag
     def tuple_emission_prob(self, w, t, add_ones=False):
@@ -161,32 +178,53 @@ class bigram(ngram):
     # find the transition probability of word and tag
     def tuple_transition_prob(self, tag1, tag2):
         if self.tags_count[tag2] == 0:
+            print('tag count is zero, tag=', tag2)
             return 0
         return self.tags_tuples_count[tag1][tag2] / self.tags_count[tag2]
+
     # find the probability of a sentence according to MLE
     def sent_prob(self, sent):
         prob = 1
         for i in range(1, len(sent)):
-            prob *= self.tuple_emission_prob(sent[i][0], sent[i][1]) * self.tuple_transition_prob(sent[i - 1][1],sent[i][1])
+            prob *= self.tuple_emission_prob(sent[i][0], sent[i][1]) * self.tuple_transition_prob(sent[i - 1][1],
+                                                                                                  sent[i][1])
         return prob
-    def viterbi_recus(self,previous_state,current_word):
-        emission_vec=np.apply_along_axis(lambda tag: self.tuple_emission_prob(current_word,tag),0,self.all_tags_vec)
-        return np.multiply(previous_state,self.trans_prob_mat).multiply
 
+    def viterbi_recrus(self, previous_state, current_word,previous_path):
+        emission_vec = np.apply_along_axis(lambda tag: self.tuple_emission_prob(current_word, tag[0]), 0,self.all_tags_vec)
+        temp_mult_res = np.multiply(previous_state, self.trans_prob_mat)
 
-    def viterbi(self,sent):
-        viterbi_table=np.full((len(self.all_tags),len(self.all_words)),-1)
-        path_vecor=np.empty((len(self.all_tags),2),dtype='O')
-    
-    
-    # use after training (counting)
-    def create_transition_matrix(self):
-        self.trans_prob_mat = 0 - np.ones(shape=(self.all_tags_vec.shape[0], self.all_tags_vec.shape[0]))
-        for i in range(0, self.all_tags_vec.shape[0]):
-            for j in range(0, self.all_tags_vec.shape[0]):
-                self.trans_prob_mat[i,j] = self.tuple_transition_prob(self.all_tags_vec[i, 0], self.all_tags_vec[j, 0])        
+        max_prob=np.max(temp_mult_res,axis=1).reshape(len(self.all_tags),1)
+        max_prob_idx=np.argmax(temp_mult_res,axis=1).reshape(len(self.all_tags),1)
+        cur_state=np.multiply(max_prob,emission_vec)
+        cur_path=previous_path[max_prob_idx, 0]
+        for i in range(cur_path.shape[0]):
+            cur_path[i,0] = cur_path[i,0] + [self.all_tags_vec[i][0]]
+        i = 1
 
+        return cur_state,max_prob_idx
+
+    def viterbi(self, sent):
+        start_idx = np.where(self.all_tags_vec == START)[0][0]
+        viterbi_table = np.full((len(self.all_tags), len(sent)), -1)
+        path_vecor = np.empty((len(self.all_tags), 1), dtype='O')
+        for i in range(len(self.all_tags)):
+            path_vecor[i,0]=[]
+        path_vecor[start_idx,0].append(START)
+        viterbi_table[:, 0] = 0
+        viterbi_table[start_idx][0] = 1
+        for i in range(1,len(sent)):
+            cur_state,cur_path=self.viterbi_recrus(viterbi_table[:,i-1],sent[i],path_vecor)
+            viterbi_table[:, i]=cur_state[:, 0]
+            path_vecor=cur_path
+        final_path_idx=np.argmax(viterbi_table[:, len(sent)-1])
+        return path_vecor[final_path_idx]
+
+    def tag_sentence(self, sent):
+        ret=self.viterbi(sent)
+        print(ret)
+        return ret
 
 
 model_bi = bigram()
-print(model_bi.all_tags_vec)
+model_bi.test(training_set)
