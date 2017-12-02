@@ -71,14 +71,14 @@ class ngram:
                 sentence.append(tagged_word[0])
             # tag the sentence
             tagged_sents_our = self.tag_sentence(np.array(sentence, dtype='O'))
-            if len(tagged_sents_our) != len(tagged_sentence):
-                print('ho no!')
+            # if len(tagged_sents_our) != len(tagged_sentence):
+                # print('ho no!')
             # check our tagging and update mistake counter
             for i in range(0, len(tagged_sents_our)):
                 total_counter = total_counter + 1
                 if tagged_sents_our[i][1] != tagged_sentence[i][1]:
                     mistakes_counter = mistakes_counter + 1
-
+        print(float(mistakes_counter) / total_counter)
         return 1 - float(mistakes_counter) / total_counter
 
         # the full training method, implement in derived
@@ -136,6 +136,7 @@ class bigram(ngram):
             self.bigram_training_set.append([(START, START)] + sent + [(STOP, STOP)])
         ngram.all_tags.add(START)
         ngram.all_tags.add(STOP)
+        ngram.all_words.add(STOP)
         sorted_tag_list = list(ngram.all_tags)
         sorted_tag_list.sort()
         self.all_tags_vec = np.array(sorted_tag_list).reshape(len(ngram.all_tags), 1)
@@ -196,7 +197,7 @@ class bigram(ngram):
 
         max_prob=np.max(temp_mult_res,axis=1).reshape(len(self.all_tags),1)
         max_prob_idx=np.argmax(temp_mult_res,axis=1).reshape(len(self.all_tags),1)
-        cur_state=np.multiply(max_prob,emission_vec)
+        cur_state=np.multiply(max_prob,emission_vec.reshape(len(self.all_tags),1))
         cur_path=previous_path[max_prob_idx, 0]
         for i in range(cur_path.shape[0]):
             cur_path[i,0] = cur_path[i,0] + [self.all_tags_vec[i][0]]
@@ -206,7 +207,7 @@ class bigram(ngram):
 
     def viterbi(self, sent):
         start_idx = np.where(self.all_tags_vec == START)[0][0]
-        viterbi_table = np.full((len(self.all_tags), len(sent)), -1)
+        viterbi_table = np.full((len(self.all_tags), len(sent)), -1.0)
         path_vecor = np.empty((len(self.all_tags), 1), dtype='O')
         for i in range(len(self.all_tags)):
             path_vecor[i,0]=[]
@@ -222,9 +223,8 @@ class bigram(ngram):
 
     def tag_sentence(self, sent):
         ret=self.viterbi(sent)
-        print(ret)
         return ret
 
 
 model_bi = bigram()
-model_bi.test(training_set)
+model_bi.test(model_bi.bigram_training_set)
