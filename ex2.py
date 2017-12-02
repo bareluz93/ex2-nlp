@@ -130,6 +130,7 @@ class bigram(ngram):
         sorted_tag_list=list(ngram.all_tags)
         sorted_tag_list.sort()
         self.all_tags_vec = np.array(sorted_tag_list).reshape(len(ngram.all_tags), 1)
+        self.reate_transition_matrix()
 
 
     def add_one(self):
@@ -175,6 +176,15 @@ class bigram(ngram):
     def viterbi(self,sent):
         viterbi_table=np.full((len(self.all_tags),len(self.all_words)),-1)
         path_vecor=np.empty((len(self.all_tags),2),dtype='O')
+    
+    
+    # use after training (counting)
+    def create_transition_matrix(self):
+        self.trans_prob_mat = 0 - np.ones(shape=(self.all_tags_vec.shape[0], self.all_tags_vec.shape[0]))
+        for i in range(0, self.all_tags_vec.shape[0]):
+            for j in range(0, self.all_tags_vec.shape[0]):
+                self.trans_prob_mat[i,j] = self.tuple_transition_prob(self.all_tags_vec[i, 0], self.all_tags_vec[j, 0])        
+
 
 
 model_bi = bigram()
