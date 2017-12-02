@@ -157,6 +157,43 @@ class bigram(ngram):
         for i in range(1,len(sent)):
             prob*=self.tuple_emission_prob(sent[i][0],sent[i][1])*self.tuple_transition_prob(sent[i-1][1],sent[i][1])
         return prob
+    
+        
+    def calc_trans_prob(self,tagged_sents):
+        all_words, all_tags = get_all_possible_tags_and_words()
+        all_tags.add('START')
+        all_tags.add('END')
+
+        trans_count = {}
+        tags_count = {}
+        for t1 in all_tags:
+            tags_count[t1] = 0
+            for t2 in all_tags:
+                trans_count[(t1, t2)] = 0
+
+        for sen in tagged_sents:
+            sen = sen.copy()
+            sen = [('START', 'START')] + sen + [('END', 'END')]
+            t0 = sen[0][1]
+            tags_count[t0] = tags_count[t0] + 1
+            for i in range(1, len(sen)):
+                word = sen[i]
+                t1 = word[1]
+                tags_count[t1] = tags_count[t1] + 1
+                trans_count[(t0,t1)] = trans_count[(t0,t1)] + 1
+                t0 = t1
+
+        trans_prob = {}
+        for t1 in all_tags:
+            trans_prob[('START', t1)] = 0
+            trans_prob[(t1, 'END')] = 0
+            for t2 in all_tags:
+                trans_prob[(t1, t2)] = 0
+
+        for t1 in all_tags:
+            for t2 in all_tags:
+                trans_prob[(t1, t2)] = trans_count[(t1, t2)] / tags_count[t1]
+        self.trans_prob = trans_prob
 
 
     # def count(self, tagged_sents):
