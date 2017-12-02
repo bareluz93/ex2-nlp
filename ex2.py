@@ -114,15 +114,23 @@ class unigram(ngram):
 
 
 class bigram(ngram):
-    bigram_training_set = [] 
+    bigram_training_set = []
     words_tags_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_tuples_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_count = collections.defaultdict(int)
+    all_tags_vec=np.array(1)
 
-    # add the word 'START' to the beginning of every sentence and the word 'STOP' to the end of every sentence
-    def add_start_stop_word(self):  # todo check error
+
+    def __init__(self):
+        # add the word 'START' to the beginning of every sentence and the word 'STOP' to the end of every sentence
         for sent in training_set:
-            self.bigram_training_set.append([('START', 'START')] + sent + [('END', 'END')])
+            self.bigram_training_set.append([('START', 'START')] + sent + [('STOP', 'STOP')])
+        ngram.all_tags.add('START')
+        ngram.all_tags.add('STOP')
+        sorted_tag_list=list(ngram.all_tags)
+        sorted_tag_list.sort()
+        self.all_tags_vec = np.array(sorted_tag_list).reshape(len(ngram.all_tags), 1)
+
 
     def add_one(self):
         for word in self.all_words:
@@ -159,8 +167,15 @@ class bigram(ngram):
         for i in range(1, len(sent)):
             prob *= self.tuple_emission_prob(sent[i][0], sent[i][1]) * self.tuple_transition_prob(sent[i - 1][1],sent[i][1])
         return prob
+    def viterbi_recus(self,previous_state,current_word):
+        emission_vec=np.apply_along_axis(lambda tag: self.tuple_emission_prob(current_word,tag),0,self.all_tags_vec)
+        return np.multiply(previous_state,self.trans_prob_mat).multiply
+
+
+    def viterbi(self,sent):
+        viterbi_table=np.full((len(self.all_tags),len(self.all_words)),-1)
+        path_vecor=np.empty((len(self.all_tags),2),dtype='O')
 
 
 model_bi = bigram()
-model_bi.add_start_stop_word()
-print(model_bi.bigram_training_set[0])
+print(model_bi.all_tags_vec)
