@@ -4,6 +4,7 @@ from nltk.corpus import brown
 import numpy as np
 import copy
 from functools import reduce
+import collections
 
 data = brown.tagged_sents(categories='news')
 training_set = data[0:int(len(data) * 0.9)]
