@@ -115,6 +115,9 @@ class unigram(ngram):
 
 class bigram(ngram):
     bigram_training_set = training_set  # todo copy
+    words_tags_count = collections.defaultdict(lambda: collections.defaultdict(int))
+    tags_tuples_count = collections.defaultdict(lambda: collections.defaultdict(int))
+    tags_count = collections.defaultdict(int)
 
     # add the word 'START' to the beginning of every sentence and the word 'STOP' to the end of every sentence
     def add_start_stop_word(self):#todo check error
@@ -122,26 +125,32 @@ class bigram(ngram):
             self.bigram_training_set[i].insert(0, ('START', 'START'))
             self.bigram_training_set[i].append(('STOP', 'STOP'))
 
+    def add_one(self):
+          for word in self.all_words:
+              for tag in self.all_tags:
+                  self.words_tags_count[word][tag]+=1
+          for tag1 in self.all_tags:
+              self.tags_count[tag1] += 1
+              for tag2 in self.all_tags:
+                  self.tags_tuples_count[tag1][tag2] += 1
+
+
+
     # compute the count of every tag and every tuples of tags and every tuples of words in the corpus sentences
     def count_words_and_tags(self):
-        words_tags_count = collections.defaultdict(lambda : collections.defaultdict(int))
-        tags_tuples_count = collections.defaultdict(lambda: collections.defaultdict(int))
-        tags_count = collections.defaultdict(int)
+
         for sent in self.bigram_training_set:
             for i in range(1, len(sent)):
-                words_tags_count[sent[i][0]][sent[i][1]] += 1
-                tags_count[sent[i][1]] += 1
-                tags_tuples_count[sent[i][1]][sent[i - 1][1]] += 1
-        return words_tags_count,tags_tuples_count,tags_count
-
+                self.words_tags_count[sent[i][0]][sent[i][1]] += 1
+                self.tags_count[sent[i][1]] += 1
+                self.tags_tuples_count[sent[i][1]][sent[i - 1][1]] += 1
 
     # find the emission probabilitiy of word and tag
     def tuple_emission_prob(self, w, t, add_ones=False):
-        words_tags_count, tags_tuples_count, tags_count = self.count_words_and_tags()
-        return words_tags_count[w][t] / tags_count[t]
+        return self.words_tags_count[w][t] / self.tags_count[t]
 
-    def tuple_transition_prob(self,tag1,tag2):
-        # todo implement
+    # def tuple_transition_prob(self,tag1,tag2):
+    #     # todo implement
 
     def sent_prob(self,sent):
         prob=0
@@ -162,7 +171,6 @@ class bigram(ngram):
     #     # todo add at any sentencs begining the * word, add * also in the counters
     #     # todo update counters
     #     return
-
 
 
 model_bi = bigram()
