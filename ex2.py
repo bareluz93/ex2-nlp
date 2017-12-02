@@ -222,8 +222,11 @@ class bigram(ngram):
         return path_vecor[final_path_idx]
 
     def tag_sentence(self, sent):
-        ret=self.viterbi(sent)
-        return ret
+        ret=self.viterbi(sent)[0]
+        ret_list = []
+        for i in range(len(sent)):
+            ret_list.append((sent[i], ret[i]))
+        return ret_list
 
 
 model_bi = bigram()
