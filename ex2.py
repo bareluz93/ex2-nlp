@@ -59,22 +59,22 @@ class ngram:
     def test(self, tagged_sents):
         total_counter = 0
         mistakes_counter = 0
-        print('TBD')
         for tagged_sentence in tagged_sents:
             # create new, untagged, sentence
             sentence = []
             for tagged_word in tagged_sentence:
                 sentence.append(tagged_word[0])
             # tag the sentence
-            tagged_sents_our = self.tag_sentence(np.array(sentence))
+            tagged_sents_our = self.tag_sentence(np.array(sentence, dtype='O'))
+            if len(tagged_sents_our) != len(tagged_sentence):
+                print('ho no!')
             # check our tagging and update mistake counter
-            for tagged_word_our, tagged_word_orig in zip(tagged_sents_our, tagged_sents):
+            for i in range(0, len(tagged_sents_our)):
                 total_counter = total_counter + 1
-                if tagged_word_our[1] != tagged_word_orig[1]:
+                if tagged_sents_our[i][1] != tagged_sentence[i][1]:
                     mistakes_counter = mistakes_counter + 1
-        print(total_counter)
-        print(mistakes_counter)
-        print('total score is ', mistakes_counter / total_counter)
+
+        return 1 - float(mistakes_counter)/total_counter
 
     # the full training method, implement in derived
     def train(self, tagged_sents):
