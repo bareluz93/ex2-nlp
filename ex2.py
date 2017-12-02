@@ -191,7 +191,7 @@ class bigram(ngram):
         return prob
 
     def viterbi_recrus(self, previous_state, current_word,previous_path):
-        emission_vec = np.apply_along_axis(lambda tag: self.tuple_emission_prob(current_word, tag[0]), 0,self.all_tags_vec)
+        emission_vec = np.apply_along_axis(lambda tag: self.tuple_emission_prob(current_word, tag[0]),1,self.all_tags_vec)
         temp_mult_res = np.multiply(previous_state, self.trans_prob_mat)
 
         max_prob=np.max(temp_mult_res,axis=1).reshape(len(self.all_tags),1)
@@ -202,7 +202,7 @@ class bigram(ngram):
             cur_path[i,0] = cur_path[i,0] + [self.all_tags_vec[i][0]]
         i = 1
 
-        return cur_state,max_prob_idx
+        return cur_state,cur_path
 
     def viterbi(self, sent):
         start_idx = np.where(self.all_tags_vec == START)[0][0]
