@@ -114,27 +114,24 @@ class unigram(ngram):
 
 
 class bigram(ngram):
-    bigram_training_set = training_set  # todo copy
+    bigram_training_set = [] 
     words_tags_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_tuples_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_count = collections.defaultdict(int)
 
     # add the word 'START' to the beginning of every sentence and the word 'STOP' to the end of every sentence
-    def add_start_stop_word(self):#todo check error
-        for i in range(len(training_set)):
-            self.bigram_training_set[i].insert(0, ('START', 'START'))
-            self.bigram_training_set[i].append(('STOP', 'STOP'))
+    def add_start_stop_word(self):  # todo check error
+        for sent in training_set:
+            self.bigram_training_set.append([('START', 'START')] + sent + [('END', 'END')])
 
     def add_one(self):
-          for word in self.all_words:
-              for tag in self.all_tags:
-                  self.words_tags_count[word][tag]+=1
-          for tag1 in self.all_tags:
-              self.tags_count[tag1] += 1
-              for tag2 in self.all_tags:
-                  self.tags_tuples_count[tag1][tag2] += 1
-
-
+        for word in self.all_words:
+            for tag in self.all_tags:
+                self.words_tags_count[word][tag] += 1
+        for tag1 in self.all_tags:
+            self.tags_count[tag1] += 1
+            for tag2 in self.all_tags:
+                self.tags_tuples_count[tag1][tag2] += 1
 
     # compute the count of every tag and every tuples of tags and every tuples of words in the corpus sentences
     def count_words_and_tags(self):
@@ -143,76 +140,27 @@ class bigram(ngram):
             for i in range(1, len(sent)):
                 self.words_tags_count[sent[i][0]][sent[i][1]] += 1
                 self.tags_count[sent[i][1]] += 1
-                self.tags_tuples_count[sent[i][1]][sent[i - 1][1]] += 1
+                self.tags_tuples_count[sent[i-1][1]][sent[i][1]] += 1
 
-    # find the emission probabilitiy of word and tag
+    # find the emission probability of word and tag
     def tuple_emission_prob(self, w, t, add_ones=False):
+        if self.tags_count[t] == 0:
+            return 0
         return self.words_tags_count[w][t] / self.tags_count[t]
 
-    # def tuple_transition_prob(self,tag1,tag2):
-    #     # todo implement
-
-    def sent_prob(self,sent):
-        prob=0
-        for i in range(1,len(sent)):
-            prob*=self.tuple_emission_prob(sent[i][0],sent[i][1])*self.tuple_transition_prob(sent[i-1][1],sent[i][1])
+    # find the transition probability of word and tag
+    def tuple_transition_prob(self, tag1, tag2):
+        if self.tags_count[tag2] == 0:
+            return 0
+        return self.tags_tuples_count[tag1][tag2] / self.tags_count[tag2]
+    # find the probability of a sentence according to MLE
+    def sent_prob(self, sent):
+        prob = 1
+        for i in range(1, len(sent)):
+            prob *= self.tuple_emission_prob(sent[i][0], sent[i][1]) * self.tuple_transition_prob(sent[i - 1][1],sent[i][1])
         return prob
-    
-        
-    def calc_trans_prob(self,tagged_sents):
-        all_words, all_tags = get_all_possible_tags_and_words()
-        all_tags.add('START')
-        all_tags.add('END')
-
-        trans_count = {}
-        tags_count = {}
-        for t1 in all_tags:
-            tags_count[t1] = 0
-            for t2 in all_tags:
-                trans_count[(t1, t2)] = 0
-
-        for sen in tagged_sents:
-            sen = sen.copy()
-            sen = [('START', 'START')] + sen + [('END', 'END')]
-            t0 = sen[0][1]
-            tags_count[t0] = tags_count[t0] + 1
-            for i in range(1, len(sen)):
-                word = sen[i]
-                t1 = word[1]
-                tags_count[t1] = tags_count[t1] + 1
-                trans_count[(t0,t1)] = trans_count[(t0,t1)] + 1
-                t0 = t1
-
-        trans_prob = {}
-        for t1 in all_tags:
-            trans_prob[('START', t1)] = 0
-            trans_prob[(t1, 'END')] = 0
-            for t2 in all_tags:
-                trans_prob[(t1, t2)] = 0
-
-        for t1 in all_tags:
-            for t2 in all_tags:
-                trans_prob[(t1, t2)] = trans_count[(t1, t2)] / tags_count[t1]
-        self.trans_prob = trans_prob
-
-
-    # def count(self, tagged_sents):
-    #
-    #     single_word_dict = {}
-    #     for tag in self.all_tags:
-    #         single_word_dict[tag] = 0
-    #
-    #     for word1 in self.all_words:
-    #         for word2 in self.all_words:
-    #             self.counters[(word1, word2)] = single_word_dict.copy()
-    #     # todo add at any sentencs begining the * word, add * also in the counters
-    #     # todo update counters
-    #     return
 
 
 model_bi = bigram()
-tuples_count, words_count = model_bi.count_words()
-# print('...........tuples_count.........')
-# print(tuples_count)
-print('...........words_count.........')
-print(words_count['STOP'])
+model_bi.add_start_stop_word()
+print(model_bi.bigram_training_set[0])
