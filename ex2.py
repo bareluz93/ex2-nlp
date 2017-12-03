@@ -17,21 +17,59 @@ USE_NN_IN_BIGRAM = False
 data = brown.tagged_sents(categories='news')
 training_set = data[0:int(len(data) * 0.9)]
 test_set = []
-tmp = data[int(len(data)*0.9):len(data)]
+tmp = data[int(len(data) * 0.9):len(data)]
 for sen in tmp:
-    test_set.append([(START,START)] + sen + [(STOP,STOP)])
+    test_set.append([(START, START)] + sen + [(STOP, STOP)])
 
 
-def get_all_possible_tags_and_words():
+def get_all_possible_tags_and_words(data_set):
     all_tags = set()
     all_words = set()
-    for sen in training_set:
+    for sen in data_set:
         for tagged_word in sen:
             all_words.add(tagged_word[0])
             all_tags.add(tagged_word[1])
     return all_words, all_tags
 
+def pseudo_word_replace(word):
+    if ((re.findall(r'\d', word) != []) and (re.findall(r'old', word) != [])):
+        return 'num_years_old'
+    if ((re.findall(r'[a-z,A-Z]', word) != []) and (re.findall(r'\d', word) != []) and (
+        re.findall(r'-', word) != [])):
+        return 'digits_and_dash'
+    if (re.match('\$(\d+|\d+\.\d+|\d+,\d+|\d+,\d+,\d+|\d+,\d+,\d+,\d+)', word)):
+        return 'dollar_and_digit'
+    if (word.endswith('%')):
+        return 'precentage'
+    if (re.match('^(\d{2}|\d{1})$', word)):
+        return 'two_digits'
+    if (re.match('^\d*(nd|st|th)$', word)):
+        return 'digits_with_th_nd_st'
+    # if (re.match('^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sept|Oct|Nov|Dec)\.$', word)):
+    #     return 'month'
+    if (re.match('^[A-Z][a-z]+ly$', word)):
+        return 'ends_with_ly'
+    # if (re.match(  '^[A-Z][A-Z]+$', word)):
+    #     return 'upper_case'
+    date1 = '^(([0-1]?[0-9])|([2][0-3])):([0-5]?[0-9])(:([0-5]?[0-9]))?$'
+    date2 = '^\d{1,2}\/\d{1,2}\/\d{4}$' + '|' + '^\d{1,2}-\d{1,2}-\d{4}$' + '|' + '^\d{1,2}.\d{1,2}.\d{4}$'
+    date3 = '^\d{4}-\d{2}|\d{4}$'
+    time_regex = date1 + '|' + date2 + '|' + date3
+    if (re.match(time_regex, word)):
+        return 'date_and_hour'
+    else:
+        return word
 
+def pseudo_word_replace_data(data, low_freq_words):
+    for i in range(len(data)):
+        cur_sent = data[i]
+        for j in range(len(cur_sent)):
+            cur_word = cur_sent[j][0]
+            cur_tag = cur_sent[j][1]
+            if cur_word in low_freq_words:
+                new_word = pseudo_word_replace(cur_word)
+                data[i][j] = (new_word, cur_tag)
+    return data
 class ngram:
     # dict(touple of (word,tag), counter)
     counters = {}
@@ -40,7 +78,7 @@ class ngram:
     probabilities = {}
 
     # sets of all possible words and tags
-    all_words, all_tags = get_all_possible_tags_and_words()
+    all_words, all_tags = get_all_possible_tags_and_words(training_set)
 
     # count the tagged sentences into 'counters', implement in the derived classes
     def count(self, tagged_sents):
@@ -110,7 +148,6 @@ class ngram:
                 'accuarcy-known': 1 - (mistakes_counter_known / (total_counter - total_counter_unknown)),
                 'accuarcy-unknown': 1 - mistakes_counter_unknown / total_counter_unknown}
 
-
     # the full training method, implement in derived
     def train(self, tagged_sents):
         print('not imlemented!')
@@ -157,55 +194,65 @@ class bigram(ngram):
     words_tags_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_tuples_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_count = collections.defaultdict(int)
-    words_count=collections.defaultdict(int)
+    words_count = collections.defaultdict(int)
     # we are smoothing using add-one only the transition!
     tags_count_transition = collections.defaultdict(int)
     all_tags_vec = np.array(1)
     add_ones_flag = False
-    def __init__(self, add_ones_flag=False):
+    # pseudo_word_flag = False
+    low_freq_words = []
+
+    def __init__(self, add_ones_flag=False, pseudo_word_flag=False):
         # add the word 'START' to the beginning of every sentence and the word 'STOP' to the end of every sentence
         for sent in training_set:
             self.bigram_training_set.append([(START, START)] + sent + [(STOP, STOP)])
-        ngram.all_tags.add(START)
-        ngram.all_tags.add(STOP)
-        ngram.all_words.add(STOP)
-        sorted_tag_list = list(ngram.all_tags)
+        for sent in self.bigram_training_set:
+            for word in sent:
+                self.words_count[word[0]] += 1
+
+        if pseudo_word_flag:
+            self.low_freq_words = self.pseudo_words_divide()
+            self.bigram_training_set = pseudo_word_replace_data(self.bigram_training_set, self.low_freq_words)
+
+        self.get_bigram_all_words_and_tags()
+        sorted_tag_list = list(self.all_tags)
         sorted_tag_list.sort()
-        self.all_tags_vec = np.array(sorted_tag_list).reshape(len(ngram.all_tags), 1)
-        self.add_ones_flag=add_ones_flag
+        self.all_tags_vec = np.array(sorted_tag_list).reshape(len(self.all_tags), 1)
+
+        self.add_ones_flag = add_ones_flag
+        # self.pseudo_word_flag=pseudo_word_flag
         if self.add_ones_flag:
-            self.words_tags_count = collections.defaultdict(lambda: collections.defaultdict(lambda :1))
+            self.words_tags_count = collections.defaultdict(lambda: collections.defaultdict(lambda: 1))
         self.count_words_and_tags()
         self.create_transition_matrix()
-    #
-    # def add_one(self):
-    #     for word in self.all_words:
-    #         for tag in self.all_tags:
-    #             self.words_tags_count[word][tag] += 1
-    def pseudo_word_replace(self,word):
 
+    def get_bigram_all_words_and_tags(self):
+        self.all_words, self.all_tags = get_all_possible_tags_and_words(self.bigram_training_set)
+        self.all_tags.add(START)
+        self.all_tags.add(STOP)
+        self.all_words.add(STOP)
 
-        if ((re.findall(r'[a-z]',word)!=[]) and (re.findall(r'\d',word)!=[]) and (re.findall(r'-',word)!=[])):
-            return 'digits_and_dash'
 
 
     def pseudo_words_divide(self):
-        low_freq_words=[]
+        low_freq_words = []
         for word in self.words_count:
-            if self.words_count[word]< PSEUDO_BOUNDRY:
+            if self.words_count[word] < PSEUDO_BOUNDRY:
                 low_freq_words.append(word)
-        print(low_freq_words)
+        # print(low_freq_words)
         return low_freq_words
-    # compute the count of every tag and every tuples of tags and every tuples of words in the corpus sentences
+
+
+
+        # compute the count of every tag and every tuples of tags and every tuples of words in the corpus sentences
+
     def count_words_and_tags(self):
 
         for sent in self.bigram_training_set:
             self.tags_count[sent[0][1]] += 1
             self.tags_count_transition[sent[0][1]] += 1
-            self.words_count[sent[0][0]] += 1
             for i in range(1, len(sent)):
                 self.words_tags_count[sent[i][0]][sent[i][1]] += 1
-                self.words_count[sent[i][0]]+=1
                 self.tags_count[sent[i][1]] += 1
                 self.tags_count_transition[sent[i][1]] += 1
                 self.tags_tuples_count[sent[i - 1][1]][sent[i][1]] += 1
@@ -221,9 +268,9 @@ class bigram(ngram):
     # find the emission probability of word and tag
     def tuple_emission_prob(self, w, t):
         if self.add_ones_flag:
-            if(self.words_tags_count[w][t]==0):
+            if (self.words_tags_count[w][t] == 0):
                 print("self.words_tags_count[w][t]==0")
-            return self.words_tags_count[w][t] / (self.tags_count[t]+len(self.all_words))
+            return self.words_tags_count[w][t] / (self.tags_count[t] + len(self.all_words))
         if self.tags_count[t] == 0:
             return 0
         return self.words_tags_count[w][t] / self.tags_count[t]
@@ -243,51 +290,53 @@ class bigram(ngram):
                                                                                                   sent[i][1])
         return prob
 
-    def viterbi_recrus(self, previous_state, current_word,previous_path):
-        emission_vec = np.apply_along_axis(lambda tag: self.tuple_emission_prob(current_word, tag[0]),1,self.all_tags_vec)
-        emission_vec=emission_vec
-        if np.sum(emission_vec)==0 and USE_NN_IN_BIGRAM:
+    def viterbi_recrus(self, previous_state, current_word, previous_path):
+        emission_vec = np.apply_along_axis(lambda tag: self.tuple_emission_prob(current_word, tag[0]), 1,
+                                           self.all_tags_vec)
+        emission_vec = emission_vec
+        if np.sum(emission_vec) == 0 and USE_NN_IN_BIGRAM:
             NN_index = np.where(self.all_tags_vec == "NN")[0][0]
             emission_vec[NN_index] = 1
         temp_mult_res = np.multiply(previous_state, self.trans_prob_mat)
 
-        max_prob=np.max(temp_mult_res,axis=1).reshape(len(self.all_tags),1)
-        max_prob_idx=np.argmax(temp_mult_res,axis=1).reshape(len(self.all_tags),1)
-        cur_state=np.multiply(max_prob,emission_vec.reshape(len(self.all_tags),1))
-        cur_path=previous_path[max_prob_idx, 0]
+        max_prob = np.max(temp_mult_res, axis=1).reshape(len(self.all_tags), 1)
+        max_prob_idx = np.argmax(temp_mult_res, axis=1).reshape(len(self.all_tags), 1)
+        cur_state = np.multiply(max_prob, emission_vec.reshape(len(self.all_tags), 1))
+        cur_path = previous_path[max_prob_idx, 0]
         for i in range(cur_path.shape[0]):
-            cur_path[i,0] = cur_path[i,0] + [self.all_tags_vec[i][0]]
+            cur_path[i, 0] = cur_path[i, 0] + [self.all_tags_vec[i][0]]
         i = 1
 
-        return cur_state,cur_path
+        return cur_state, cur_path
 
     def viterbi(self, sent):
         start_idx = np.where(self.all_tags_vec == START)[0][0]
         viterbi_table = np.full((len(self.all_tags), len(sent)), -1.0)
         path_vecor = np.empty((len(self.all_tags), 1), dtype='O')
         for i in range(len(self.all_tags)):
-            path_vecor[i,0]=[]
-        path_vecor[start_idx,0].append(START)
+            path_vecor[i, 0] = []
+        path_vecor[start_idx, 0].append(START)
         viterbi_table[:, 0] = 0
         viterbi_table[start_idx][0] = 1
-        for i in range(1,len(sent)):
-            cur_state,cur_path=self.viterbi_recrus(viterbi_table[:,i-1],sent[i],path_vecor)
-            viterbi_table[:, i]=cur_state[:, 0]
-            path_vecor=cur_path
-        final_path_idx=np.argmax(viterbi_table[:, len(sent)-1])
+        for i in range(1, len(sent)):
+            cur_state, cur_path = self.viterbi_recrus(viterbi_table[:, i - 1], sent[i], path_vecor)
+            viterbi_table[:, i] = cur_state[:, 0]
+            path_vecor = cur_path
+        final_path_idx = np.argmax(viterbi_table[:, len(sent) - 1])
         return path_vecor[final_path_idx]
 
     def tag_sentence(self, sent):
-        ret=self.viterbi(sent)[0]
+        ret = self.viterbi(sent)[0]
         ret_list = []
         for i in range(len(sent)):
             ret_list.append((sent[i], ret[i]))
         return ret_list
 
 
-
-model_bi = bigram(False)
-words=model_bi.pseudo_words_divide()
-print('..................chosen words..................')
-for word in words:
-    model_bi.pseudo_word_replace(word)
+model_bi = bigram(False,True)
+low_freq_words=model_bi.low_freq_words
+test_set=pseudo_word_replace_data(test_set,low_freq_words)
+print(model_bi.test(test_set))
+# print('..................chosen words..................')
+# for word in words:
+#     model_bi.pseudo_word_replace(word)
