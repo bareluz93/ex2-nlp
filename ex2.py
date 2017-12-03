@@ -12,7 +12,6 @@ PSEUDO_BOUNDRY = 5
 
 STOP = 'STOP'
 START = 'START'
-USE_NN_IN_BIGRAM = False
 
 data = brown.tagged_sents(categories='news')
 training_set = data[0:int(len(data) * 0.9)]
@@ -98,17 +97,15 @@ class ngram:
         mistakes_counter = np.sum(np.array(a)[:, 0])
         mistakes_counter_unknown = np.sum(np.array(a)[:, 1])
         mistakes_counter_known = mistakes_counter - mistakes_counter_unknown
-        print(mistakes_counter)
         for s in tagged_sents:
             for i in range(1, len(s)):
                 total_counter += 1
                 if s[i][0] not in self.all_words:
                     total_counter_unknown += 1
         total_counter_known = total_counter - total_counter_unknown
-        print(total_counter, '  ', total_counter_known, '  ', total_counter_unknown)
-        return {'accuarcy': 1 - (mistakes_counter / total_counter),
-                'accuarcy-known': 1 - (mistakes_counter_known / (total_counter - total_counter_unknown)),
-                'accuarcy-unknown': 1 - mistakes_counter_unknown / total_counter_unknown}
+        return {'total error': (mistakes_counter / total_counter),
+                'known words error': (mistakes_counter_known / (total_counter - total_counter_unknown)),
+                'unknown words error': mistakes_counter_unknown / total_counter_unknown}
 
 
     # the full training method, implement in derived
@@ -162,6 +159,8 @@ class bigram(ngram):
     tags_count_transition = collections.defaultdict(int)
     all_tags_vec = np.array(1)
     add_ones_flag = False
+    USE_NN_IN_BIGRAM = False
+
     def __init__(self, add_ones_flag=False):
         # add the word 'START' to the beginning of every sentence and the word 'STOP' to the end of every sentence
         for sent in training_set:
@@ -246,15 +245,21 @@ class bigram(ngram):
     def viterbi_recrus(self, previous_state, current_word,previous_path):
         emission_vec = np.apply_along_axis(lambda tag: self.tuple_emission_prob(current_word, tag[0]),1,self.all_tags_vec)
         emission_vec=emission_vec
-        if np.sum(emission_vec)==0 and USE_NN_IN_BIGRAM:
-            NN_index = np.where(self.all_tags_vec == "NN")[0][0]
-            emission_vec[NN_index] = 1
+        # if np.sum(emission_vec) == 0 and self.USE_NN_IN_BIGRAM:
+        #     NN_index = np.where(self.all_tags_vec == "NN")[0][0]
+        #     emission_vec[NN_index] = 1
         temp_mult_res = np.multiply(previous_state, self.trans_prob_mat)
 
         max_prob=np.max(temp_mult_res,axis=1).reshape(len(self.all_tags),1)
         max_prob_idx=np.argmax(temp_mult_res,axis=1).reshape(len(self.all_tags),1)
         cur_state=np.multiply(max_prob,emission_vec.reshape(len(self.all_tags),1))
+        if np.sum(cur_state) == 0 and self.USE_NN_IN_BIGRAM:
+            NN_index = np.where(self.all_tags_vec == "NN")[0][0]
+            cur_state[NN_index] = 1
         cur_path=previous_path[max_prob_idx, 0]
+        # if np.sum(emission_vec) == 0 and self.USE_NN_IN_BIGRAM:
+        #     cur_state
+
         for i in range(cur_path.shape[0]):
             cur_path[i,0] = cur_path[i,0] + [self.all_tags_vec[i][0]]
         i = 1
@@ -285,9 +290,29 @@ class bigram(ngram):
         return ret_list
 
 
+def main():
+    print('Accuracy test for our language models')
+    #unigram
+    model_a = unigram()
+    model_a.train(training_set)
+    print('\nUnigram model accuracy, unknown words tagged as NN')
+    print(model_a.test(test_set))
 
-model_bi = bigram(False)
-words=model_bi.pseudo_words_divide()
-print('..................chosen words..................')
-for word in words:
-    model_bi.pseudo_word_replace(word)
+    #bigram
+    model_b = bigram()   # training in the constructor
+    bigram.USE_NN_IN_BIGRAM = True
+    print('\nBigram model accuracy, no smoothing,if state vector is zero, state_vecrot[\'NN\'] = 1, viterbi algorithem')
+    print(model_b.test(test_set))
+    print('we can see that the with the NN trick, the Bigram is a little bit better then the unigram.\n'
+          '\twe must say that without this trick, most of the sentences cant be tagged,\n'
+          '\tand then the bigram preformance is much worse.\n')
+
+    model_b = bigram(True)
+    print('\nBigram model accuracy, add-one smoothing for emission probability\n'
+          '\tbecause we do not choose the NN as tag for the unknown words, \n'
+          '\tit gives worse performance than the regular bgram.')
+    print(model_b.test(test_set))
+
+    print('\nBigram model accuracy, add_one smoothing and pseudo-words')
+
+main()
