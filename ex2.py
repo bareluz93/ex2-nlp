@@ -68,6 +68,7 @@ class ngram:
     # return number of mistakes
     def score_sentence(self, tagged_sent):
         mistakes_counter = 0
+        unknown_words_mistakes = 0
         sentence = []
         for tagged_word in tagged_sent:
             sentence.append(tagged_word[0])
@@ -79,18 +80,28 @@ class ngram:
         for i in range(1, len(tagged_sents_our)-1):
             if tagged_sents_our[i][1] != tagged_sent[i][1]:
                 mistakes_counter = mistakes_counter + 1
-        return mistakes_counter
+                if tagged_sents_our[i][0] not in self.all_words:
+                    unknown_words_mistakes += 1
+        return [mistakes_counter, unknown_words_mistakes]
 
     # get sentences, tag them using tag_sentence(), compare to original, compute and return the accuarcy
     def test(self, tagged_sents):
         total_counter = 0
+        total_counter_unknown = 0
+        total_counter_known = 0
         a = list(map(self.score_sentence, tagged_sents))
-        mistakes_counter = np.sum(a)
+        mistakes_counter = np.sum(np.array(a)[:,0])
+        mistakes_counter_unknown = np.sum(np.array(a)[:,1])
+        mistakes_counter_known = mistakes_counter - mistakes_counter_unknown
+        print(mistakes_counter)
         for s in tagged_sents:
-            total_counter-=2
-            for w in s:
+            for i in range(1, len(s)):
                 total_counter+= 1
-        return 1 - float(mistakes_counter) / total_counter
+                if s[i][0] not in self.all_words:
+                    total_counter_unknown += 1
+        total_counter_known = total_counter - total_counter_unknown
+        print(total_counter, '  ', total_counter_known, '  ', total_counter_unknown)
+        return {'accuarcy':1-(mistakes_counter/total_counter), 'accuarcy-known':1-(mistakes_counter_known/(total_counter-total_counter_unknown)), 'accuarcy-unknown':1-mistakes_counter_unknown/total_counter_unknown}
 
         # the full training method, implement in derived
 
