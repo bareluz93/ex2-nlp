@@ -67,6 +67,7 @@ class ngram:
 
     # return number of mistakes
     def score_sentence(self, tagged_sent):
+        mistakes_counter = 0
         sentence = []
         for tagged_word in tagged_sent:
             sentence.append(tagged_word[0])
@@ -84,20 +85,17 @@ class ngram:
     def test(self, tagged_sents):
         total_counter = 0
         mistakes_counter = 0
-        for tagged_sentence in tagged_sents:
-            # create new, untagged, sentence
-            sentence = []
-            for tagged_word in tagged_sentence:
-                sentence.append(tagged_word[0])
-            # tag the sentence
-            tagged_sents_our = self.tag_sentence(np.array(sentence, dtype='O'))
-            # if len(tagged_sents_our) != len(tagged_sentence):
-                # print('ho no!')
-            # check our tagging and update mistake counter
-            for i in range(0, len(tagged_sents_our)):
-                total_counter = total_counter + 1
-                if tagged_sents_our[i][1] != tagged_sentence[i][1]:
-                    mistakes_counter = mistakes_counter + 1
+        # for tagged_sentence in tagged_sents:
+        import functools
+        f = functools.partial(self.score_sentence)
+        import multiprocessing
+        pool = multiprocessing.Pool()
+
+        a = list(pool.map(f, tagged_sents))
+        mistakes_counter = np.sum(a)
+        for s in tagged_sents:
+            for w in s:
+                total_counter+= 1
         return 1 - float(mistakes_counter) / total_counter
 
         # the full training method, implement in derived
