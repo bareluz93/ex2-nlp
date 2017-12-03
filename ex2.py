@@ -6,10 +6,13 @@ import copy
 from functools import reduce
 import collections
 from multiprocessing import Pool
+import re
+
+PSEUDO_BOUNDRY = 5
 
 STOP = 'STOP'
 START = 'START'
-USE_NN_IN_BIGRAM = True
+USE_NN_IN_BIGRAM = False
 
 data = brown.tagged_sents(categories='news')
 training_set = data[0:int(len(data) * 0.9)]
@@ -65,7 +68,8 @@ class ngram:
     def tag_sentence(self, sent):
         print('not implemented!')
 
-    # return number of mistakes
+        # return number of mistakes
+
     def score_sentence(self, tagged_sent):
         mistakes_counter = 0
         unknown_words_mistakes = 0
@@ -77,34 +81,37 @@ class ngram:
         if len(tagged_sents_our) != len(tagged_sent):
             print('ho no!')
         # check our tagging and update mistake counter
-        for i in range(1, len(tagged_sents_our)-1):
+        for i in range(1, len(tagged_sents_our) - 1):
             if tagged_sents_our[i][1] != tagged_sent[i][1]:
                 mistakes_counter = mistakes_counter + 1
                 if tagged_sents_our[i][0] not in self.all_words:
                     unknown_words_mistakes += 1
         return [mistakes_counter, unknown_words_mistakes]
 
-    # get sentences, tag them using tag_sentence(), compare to original, compute and return the accuarcy
+        # get sentences, tag them using tag_sentence(), compare to original, compute and return the accuarcy
+
     def test(self, tagged_sents):
         total_counter = 0
         total_counter_unknown = 0
         total_counter_known = 0
         a = list(map(self.score_sentence, tagged_sents))
-        mistakes_counter = np.sum(np.array(a)[:,0])
-        mistakes_counter_unknown = np.sum(np.array(a)[:,1])
+        mistakes_counter = np.sum(np.array(a)[:, 0])
+        mistakes_counter_unknown = np.sum(np.array(a)[:, 1])
         mistakes_counter_known = mistakes_counter - mistakes_counter_unknown
         print(mistakes_counter)
         for s in tagged_sents:
             for i in range(1, len(s)):
-                total_counter+= 1
+                total_counter += 1
                 if s[i][0] not in self.all_words:
                     total_counter_unknown += 1
         total_counter_known = total_counter - total_counter_unknown
         print(total_counter, '  ', total_counter_known, '  ', total_counter_unknown)
-        return {'accuarcy':1-(mistakes_counter/total_counter), 'accuarcy-known':1-(mistakes_counter_known/(total_counter-total_counter_unknown)), 'accuarcy-unknown':1-mistakes_counter_unknown/total_counter_unknown}
+        return {'accuarcy': 1 - (mistakes_counter / total_counter),
+                'accuarcy-known': 1 - (mistakes_counter_known / (total_counter - total_counter_unknown)),
+                'accuarcy-unknown': 1 - mistakes_counter_unknown / total_counter_unknown}
 
-        # the full training method, implement in derived
 
+    # the full training method, implement in derived
     def train(self, tagged_sents):
         print('not imlemented!')
 
@@ -146,16 +153,16 @@ class unigram(ngram):
 
 
 class bigram(ngram):
-    add_one_flag = False
     bigram_training_set = []
     words_tags_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_tuples_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_count = collections.defaultdict(int)
+    words_count=collections.defaultdict(int)
     # we are smoothing using add-one only the transition!
     tags_count_transition = collections.defaultdict(int)
     all_tags_vec = np.array(1)
-
-    def __init__(self, add_one_=False):
+    add_ones_flag = False
+    def __init__(self, add_ones_flag=False):
         # add the word 'START' to the beginning of every sentence and the word 'STOP' to the end of every sentence
         for sent in training_set:
             self.bigram_training_set.append([(START, START)] + sent + [(STOP, STOP)])
@@ -165,33 +172,40 @@ class bigram(ngram):
         sorted_tag_list = list(ngram.all_tags)
         sorted_tag_list.sort()
         self.all_tags_vec = np.array(sorted_tag_list).reshape(len(ngram.all_tags), 1)
-        if add_one_:
-            self.tags_tuples_count = collections.defaultdict(lambda: collections.defaultdict(lambda: 1))
-            self.tags_count_transition = collections.defaultdict(lambda: len(self.all_tags))
-
+        self.add_ones_flag=add_ones_flag
+        if self.add_ones_flag:
+            self.words_tags_count = collections.defaultdict(lambda: collections.defaultdict(lambda :1))
         self.count_words_and_tags()
-
-        # if add_one_:
-            # self.add_one()
         self.create_transition_matrix()
+    #
+    # def add_one(self):
+    #     for word in self.all_words:
+    #         for tag in self.all_tags:
+    #             self.words_tags_count[word][tag] += 1
+    def pseudo_word_replace(self,word):
 
-    def add_one(self):
-        for word in self.all_words:
-            for tag in self.all_tags:
-                self.words_tags_count[word][tag] += 1
-        for tag1 in self.all_tags:
-            self.tags_count[tag1] += 1
-            for tag2 in self.all_tags:
-                self.tags_tuples_count[tag1][tag2] += 1
 
+        if ((re.findall(r'[a-z]',word)!=[]) and (re.findall(r'\d',word)!=[]) and (re.findall(r'-',word)!=[])):
+            return 'digits_and_dash'
+
+
+    def pseudo_words_divide(self):
+        low_freq_words=[]
+        for word in self.words_count:
+            if self.words_count[word]< PSEUDO_BOUNDRY:
+                low_freq_words.append(word)
+        print(low_freq_words)
+        return low_freq_words
     # compute the count of every tag and every tuples of tags and every tuples of words in the corpus sentences
     def count_words_and_tags(self):
 
         for sent in self.bigram_training_set:
-            self.tags_count[sent[0][0]] += 1
-            self.tags_count_transition[sent[0][0]] += 1
+            self.tags_count[sent[0][1]] += 1
+            self.tags_count_transition[sent[0][1]] += 1
+            self.words_count[sent[0][0]] += 1
             for i in range(1, len(sent)):
                 self.words_tags_count[sent[i][0]][sent[i][1]] += 1
+                self.words_count[sent[i][0]]+=1
                 self.tags_count[sent[i][1]] += 1
                 self.tags_count_transition[sent[i][1]] += 1
                 self.tags_tuples_count[sent[i - 1][1]][sent[i][1]] += 1
@@ -205,7 +219,11 @@ class bigram(ngram):
         self.trans_prob_mat = self.trans_prob_mat.transpose()
 
     # find the emission probability of word and tag
-    def tuple_emission_prob(self, w, t, add_ones=False):
+    def tuple_emission_prob(self, w, t):
+        if self.add_ones_flag:
+            if(self.words_tags_count[w][t]==0):
+                print("self.words_tags_count[w][t]==0")
+            return self.words_tags_count[w][t] / (self.tags_count[t]+len(self.all_words))
         if self.tags_count[t] == 0:
             return 0
         return self.words_tags_count[w][t] / self.tags_count[t]
@@ -227,6 +245,7 @@ class bigram(ngram):
 
     def viterbi_recrus(self, previous_state, current_word,previous_path):
         emission_vec = np.apply_along_axis(lambda tag: self.tuple_emission_prob(current_word, tag[0]),1,self.all_tags_vec)
+        emission_vec=emission_vec
         if np.sum(emission_vec)==0 and USE_NN_IN_BIGRAM:
             NN_index = np.where(self.all_tags_vec == "NN")[0][0]
             emission_vec[NN_index] = 1
@@ -267,5 +286,8 @@ class bigram(ngram):
 
 
 
-model_bi = bigram(True)
-print('accuarcy = ', model_bi.test(test_set))
+model_bi = bigram(False)
+words=model_bi.pseudo_words_divide()
+print('..................chosen words..................')
+for word in words:
+    model_bi.pseudo_word_replace(word)
