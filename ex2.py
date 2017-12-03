@@ -348,7 +348,7 @@ class bigram(ngram):
         return ret_list
 
 
-def main():
+def main(test_set):
     print('Accuracy test for our language models')
     #unigram
     model_a = unigram()
@@ -380,7 +380,7 @@ def main():
 # print(model_b.test(test_set))
 
 
-main()
+main(test_set)
 # for s in model_b.bigram_training_set:
 #     for w in s:
 #         if w[0] == 'digits_with_th_nd_st':
