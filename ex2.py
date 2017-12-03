@@ -9,7 +9,7 @@ from multiprocessing import Pool
 
 STOP = 'STOP'
 START = 'START'
-USE_NN_IN_BIGRAM = False
+USE_NN_IN_BIGRAM = True
 
 data = brown.tagged_sents(categories='news')
 training_set = data[0:int(len(data) * 0.9)]
@@ -76,7 +76,7 @@ class ngram:
         if len(tagged_sents_our) != len(tagged_sent):
             print('ho no!')
         # check our tagging and update mistake counter
-        for i in range(0, len(tagged_sents_our)):
+        for i in range(1, len(tagged_sents_our)-1):
             if tagged_sents_our[i][1] != tagged_sent[i][1]:
                 mistakes_counter = mistakes_counter + 1
         return mistakes_counter
@@ -84,16 +84,10 @@ class ngram:
     # get sentences, tag them using tag_sentence(), compare to original, compute and return the accuarcy
     def test(self, tagged_sents):
         total_counter = 0
-        mistakes_counter = 0
-        # for tagged_sentence in tagged_sents:
-        import functools
-        f = functools.partial(self.score_sentence)
-        import multiprocessing
-        pool = multiprocessing.Pool()
-
-        a = list(pool.map(f, tagged_sents))
+        a = list(map(self.score_sentence, tagged_sents))
         mistakes_counter = np.sum(a)
         for s in tagged_sents:
+            total_counter-=2
             for w in s:
                 total_counter+= 1
         return 1 - float(mistakes_counter) / total_counter
@@ -207,10 +201,10 @@ class bigram(ngram):
 
     # find the transition probability of word and tag
     def tuple_transition_prob(self, tag1, tag2):
-        if self.tags_count_transition[tag2] == 0:
-            print('tag count is zero, tag=', tag2)
+        if self.tags_count_transition[tag1] == 0:
+            print('tag count is zero, tag=', tag1)
             return 0
-        return self.tags_tuples_count[tag1][tag2] / self.tags_count_transition[tag2]
+        return self.tags_tuples_count[tag1][tag2] / self.tags_count_transition[tag1]
 
     # find the probability of a sentence according to MLE
     def sent_prob(self, sent):
@@ -259,6 +253,7 @@ class bigram(ngram):
         for i in range(len(sent)):
             ret_list.append((sent[i], ret[i]))
         return ret_list
+
 
 
 model_bi = bigram(True)
