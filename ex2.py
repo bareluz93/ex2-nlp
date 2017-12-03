@@ -5,13 +5,18 @@ import numpy as np
 import copy
 from functools import reduce
 import collections
+from multiprocessing import Pool
 
 STOP = 'STOP'
-
 START = 'START'
+USE_NN_IN_BIGRAM = False
 
 data = brown.tagged_sents(categories='news')
 training_set = data[0:int(len(data) * 0.9)]
+test_set = []
+tmp = data[int(len(data)*0.9):len(data)]
+for sen in tmp:
+    test_set.append([(START,START)] + sen + [(STOP,STOP)])
 
 
 def get_all_possible_tags_and_words():
@@ -60,6 +65,21 @@ class ngram:
     def tag_sentence(self, sent):
         print('not implemented!')
 
+    # return number of mistakes
+    def score_sentence(self, tagged_sent):
+        sentence = []
+        for tagged_word in tagged_sent:
+            sentence.append(tagged_word[0])
+        # tag the sentence
+        tagged_sents_our = self.tag_sentence(np.array(sentence, dtype='O'))
+        if len(tagged_sents_our) != len(tagged_sent):
+            print('ho no!')
+        # check our tagging and update mistake counter
+        for i in range(0, len(tagged_sents_our)):
+            if tagged_sents_our[i][1] != tagged_sent[i][1]:
+                mistakes_counter = mistakes_counter + 1
+        return mistakes_counter
+
     # get sentences, tag them using tag_sentence(), compare to original, compute and return the accuarcy
     def test(self, tagged_sents):
         total_counter = 0
@@ -78,7 +98,6 @@ class ngram:
                 total_counter = total_counter + 1
                 if tagged_sents_our[i][1] != tagged_sentence[i][1]:
                     mistakes_counter = mistakes_counter + 1
-        print(float(mistakes_counter) / total_counter)
         return 1 - float(mistakes_counter) / total_counter
 
         # the full training method, implement in derived
@@ -124,13 +143,16 @@ class unigram(ngram):
 
 
 class bigram(ngram):
+    add_one_flag = False
     bigram_training_set = []
     words_tags_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_tuples_count = collections.defaultdict(lambda: collections.defaultdict(int))
     tags_count = collections.defaultdict(int)
+    # we are smoothing using add-one only the transition!
+    tags_count_transition = collections.defaultdict(int)
     all_tags_vec = np.array(1)
 
-    def __init__(self):
+    def __init__(self, add_one_=False):
         # add the word 'START' to the beginning of every sentence and the word 'STOP' to the end of every sentence
         for sent in training_set:
             self.bigram_training_set.append([(START, START)] + sent + [(STOP, STOP)])
@@ -140,7 +162,14 @@ class bigram(ngram):
         sorted_tag_list = list(ngram.all_tags)
         sorted_tag_list.sort()
         self.all_tags_vec = np.array(sorted_tag_list).reshape(len(ngram.all_tags), 1)
+        if add_one_:
+            self.tags_tuples_count = collections.defaultdict(lambda: collections.defaultdict(lambda: 1))
+            self.tags_count_transition = collections.defaultdict(lambda: len(self.all_tags))
+
         self.count_words_and_tags()
+
+        # if add_one_:
+            # self.add_one()
         self.create_transition_matrix()
 
     def add_one(self):
@@ -157,9 +186,11 @@ class bigram(ngram):
 
         for sent in self.bigram_training_set:
             self.tags_count[sent[0][0]] += 1
+            self.tags_count_transition[sent[0][0]] += 1
             for i in range(1, len(sent)):
                 self.words_tags_count[sent[i][0]][sent[i][1]] += 1
                 self.tags_count[sent[i][1]] += 1
+                self.tags_count_transition[sent[i][1]] += 1
                 self.tags_tuples_count[sent[i - 1][1]][sent[i][1]] += 1
 
     # use after training (counting)
@@ -178,10 +209,10 @@ class bigram(ngram):
 
     # find the transition probability of word and tag
     def tuple_transition_prob(self, tag1, tag2):
-        if self.tags_count[tag2] == 0:
+        if self.tags_count_transition[tag2] == 0:
             print('tag count is zero, tag=', tag2)
             return 0
-        return self.tags_tuples_count[tag1][tag2] / self.tags_count[tag2]
+        return self.tags_tuples_count[tag1][tag2] / self.tags_count_transition[tag2]
 
     # find the probability of a sentence according to MLE
     def sent_prob(self, sent):
@@ -193,6 +224,9 @@ class bigram(ngram):
 
     def viterbi_recrus(self, previous_state, current_word,previous_path):
         emission_vec = np.apply_along_axis(lambda tag: self.tuple_emission_prob(current_word, tag[0]),1,self.all_tags_vec)
+        if np.sum(emission_vec)==0 and USE_NN_IN_BIGRAM:
+            NN_index = np.where(self.all_tags_vec == "NN")[0][0]
+            emission_vec[NN_index] = 1
         temp_mult_res = np.multiply(previous_state, self.trans_prob_mat)
 
         max_prob=np.max(temp_mult_res,axis=1).reshape(len(self.all_tags),1)
@@ -229,5 +263,5 @@ class bigram(ngram):
         return ret_list
 
 
-model_bi = bigram()
-model_bi.test(model_bi.bigram_training_set)
+model_bi = bigram(True)
+print('accuarcy = ', model_bi.test(test_set))
