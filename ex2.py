@@ -12,7 +12,6 @@ PSEUDO_BOUNDRY = 5
 
 STOP = 'STOP'
 START = 'START'
-USE_NN_IN_BIGRAM = False
 
 data = brown.tagged_sents(categories='news')
 training_set = data[0:int(len(data) * 0.9)]
@@ -68,8 +67,8 @@ def pseudo_word_replace_data(data, low_freq_words):
         for j in range(len(cur_sent)):
             cur_word = cur_sent[j][0]
             cur_tag = cur_sent[j][1]
-            if cur_word in low_freq_words:
-                cur_word = pseudo_word_replace(cur_word)
+#             if cur_word in low_freq_words:
+            cur_word = pseudo_word_replace(cur_word)
             new_sen.append((cur_word, cur_tag))
         new_data.append(new_sen)
         # print(new_sen)
@@ -205,7 +204,8 @@ class bigram(ngram):
     add_ones_flag = False
     # pseudo_word_flag = False
     low_freq_words = []
-    USE_NN_IN_BIGRAM = False
+    USE_NN_IN_BIGRAM = True
+    training_set_size = 0
 
     def __init__(self, add_ones_flag=False, pseudo_word_flag=False):
         # add the word 'START' to the beginning of every sentence and the word 'STOP' to the end of every sentence
@@ -261,6 +261,7 @@ class bigram(ngram):
                 self.tags_count[sent[i][1]] += 1
                 self.tags_count_transition[sent[i][1]] += 1
                 self.tags_tuples_count[sent[i - 1][1]][sent[i][1]] += 1
+                self.training_set_size += 1
 
     # use after training (counting)
     def create_transition_matrix(self):
@@ -297,7 +298,11 @@ class bigram(ngram):
 
     def viterbi_recrus(self, previous_state, current_word,previous_path):
         emission_vec = np.apply_along_axis(lambda tag: self.tuple_emission_prob(current_word, tag[0]),1,self.all_tags_vec)
-        emission_vec=emission_vec
+
+        # if np.sum(emission_vec) == 0:
+        #     tmp2 = np.apply_along_axis(lambda tag: self.tags_count[tag[0]],1,self.all_tags_vec)
+        #     tmp2 = tmp2 / self.training_set_size
+        #     emission_vec = tmp2
         # if np.sum(emission_vec) == 0 and self.USE_NN_IN_BIGRAM:
         #     NN_index = np.where(self.all_tags_vec == "NN")[0][0]
         #     emission_vec[NN_index] = 1
@@ -353,7 +358,6 @@ def main():
 
     #bigram
     model_b = bigram()   # training in the constructor
-    bigram.USE_NN_IN_BIGRAM = True
     print('\nBigram model accuracy, no smoothing,if state vector is zero, state_vecrot[\'NN\'] = 1, viterbi algorithem')
     print(model_b.test(test_set))
     print('we can see that the with the NN trick, the Bigram is a little bit better then the unigram.\n'
@@ -366,8 +370,20 @@ def main():
           '\tit gives worse performance than the regular bgram.')
     print(model_b.test(test_set))
 
+
     print('\nBigram model accuracy, add_one smoothing and pseudo-words')
+    model_b = bigram(False, True)
+    test_set = pseudo_word_replace_data(test_set, model_b.low_freq_words)
+    print(model_b.test(test_set))
+
+# model_b = bigram(False, False)
+# print(model_b.test(test_set))
 
 
-model_b = bigram(False, True)
-model_b
+main()
+# for s in model_b.bigram_training_set:
+#     for w in s:
+#         if w[0] == 'digits_with_th_nd_st':
+#             print('blob')
+# test_set = pseudo_word_replace_data(test_set, model_b.low_freq_words)
+# print(model_b.test(test_set))
