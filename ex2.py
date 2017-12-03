@@ -61,15 +61,19 @@ def pseudo_word_replace(word):
         return word
 
 def pseudo_word_replace_data(data, low_freq_words):
+    new_data = []
     for i in range(len(data)):
+        new_sen = []
         cur_sent = data[i]
         for j in range(len(cur_sent)):
             cur_word = cur_sent[j][0]
             cur_tag = cur_sent[j][1]
             if cur_word in low_freq_words:
-                new_word = pseudo_word_replace(cur_word)
-                data[i][j] = (new_word, cur_tag)
-    return data
+                cur_word = pseudo_word_replace(cur_word)
+            new_sen.append((cur_word, cur_tag))
+        new_data.append(new_sen)
+        # print(new_sen)
+    return new_data
 class ngram:
     # dict(touple of (word,tag), counter)
     counters = {}
@@ -226,12 +230,6 @@ class bigram(ngram):
             self.words_tags_count = collections.defaultdict(lambda: collections.defaultdict(lambda: 1))
         self.count_words_and_tags()
         self.create_transition_matrix()
-    #
-    # def add_one(self):
-    #     for word in self.all_words:
-    #         for tag in self.all_tags:
-    #             self.words_tags_count[word][tag] += 1
-    def pseudo_word_replace(self,word):
 
     def get_bigram_all_words_and_tags(self):
         self.all_words, self.all_tags = get_all_possible_tags_and_words(self.bigram_training_set)
@@ -370,4 +368,6 @@ def main():
 
     print('\nBigram model accuracy, add_one smoothing and pseudo-words')
 
-main()
+
+model_b = bigram(False, True)
+model_b
